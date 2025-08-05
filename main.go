@@ -30,7 +30,7 @@ func main() {
 		os.Exit(1)
 	}
 	split := 2
-	splitsecchunks, remainder := divmod(int64(sec), int64(split))
+	splitsecchunks, remainder := DivideWithMod(int64(sec), int64(split))
 	//if bar {
 	pbar := progressbar.Default(splitsecchunks)
 	//}
@@ -91,8 +91,8 @@ func IsNumeric(s string) (bool, int) {
 	return true, mynum
 }
 
-func divmod(numerator, denominator int64) (quotient, remainder int64) {
-	quotient = numerator / denominator // integer division, decimals are truncated
-	remainder = numerator % denominator
-	return
+func DivideWithMod(numerator, denominator int64) (int64, int64) {
+	answer := numerator / denominator
+	remainder := numerator % denominator
+	return answer, remainder
 }
