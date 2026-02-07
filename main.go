@@ -2,12 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/schollz/progressbar/v3"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func main() {
@@ -29,25 +33,110 @@ func main() {
 		fmt.Println("Only use 1 output mode")
 		os.Exit(1)
 	}
-	split := 2
-	splitsecchunks, remainder := DivideWithMod(int64(sec), int64(split))
-	//if bar {
-	pbar := progressbar.Default(splitsecchunks)
-	//}
+
+	const refreshRate = 2 // seconds
+	totalDuration := time.Duration(sec) * time.Second
+	var pbar *progressbar.ProgressBar
+
+	if bar {
+		pbar = progressbar.Default(int64(sec))
+	}
+
+	// Start time to track actual elapsed time (prevents drift)
+	startTime := time.Now()
+
+	// Signal handling for Ctrl-C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT)
+
+	var lastSigTime time.Time
+	var sigMutex sync.Mutex
+	gracefulExit := false
+
+	go func() {
+		for range sigChan {
+			sigMutex.Lock()
+			now := time.Now()
+			elapsed := time.Since(startTime)
+			remaining := totalDuration - elapsed
+
+			if !lastSigTime.IsZero() && now.Sub(lastSigTime) < 2*time.Second {
+				// Second Ctrl-C within 2 seconds - exit
+				gracefulExit = true
+				sigMutex.Unlock()
+				fmt.Println("\nExiting...")
+				os.Exit(0)
+			}
+
+			// First Ctrl-C - show time remaining
+			if remaining > 0 {
+				fmt.Printf("\nTime remaining: %d seconds\n", int64(remaining.Seconds()))
+			}
+			lastSigTime = now
+			sigMutex.Unlock()
+		}
+	}()
+
+	var lastUpdateTime time.Time
+
 	if timeleft {
 		fmt.Print("\033[H\033[2J")
-		fmt.Println("Time remaining", ((splitsecchunks * int64(split)) + remainder), "seconds remaining. Refresh Rate", split, "seconds")
+		fmt.Printf("Time remaining: %d seconds. Refresh Rate: %d seconds\n", sec, refreshRate)
+		fmt.Println("Press Ctrl-C to see time remaining, press again within 2s to exit")
+		lastUpdateTime = startTime
 	}
-	time.Sleep(time.Duration(remainder) * time.Second)
-	var i int64
-	for i = 0; i < splitsecchunks; i++ {
+
+	// Main sleep loop - uses elapsed time instead of fixed sleeps to prevent drift
+	for {
+		// Check if we should exit gracefully
+		sigMutex.Lock()
+		if gracefulExit {
+			sigMutex.Unlock()
+			break
+		}
+		sigMutex.Unlock()
+
+		elapsed := time.Since(startTime)
+		if elapsed >= totalDuration {
+			break
+		}
+
+		remaining := totalDuration - elapsed
+
+		// Calculate next update time
+		nextUpdateTime := lastUpdateTime.Add(time.Duration(refreshRate) * time.Second)
+		sleepDuration := time.Until(nextUpdateTime)
+
+		if sleepDuration > 0 {
+			time.Sleep(sleepDuration)
+		}
+
+		// Update display or progress bar
+		elapsed = time.Since(startTime)
+		if elapsed >= totalDuration {
+			break
+		}
+
+		remaining = totalDuration - elapsed
+
 		if timeleft {
 			fmt.Print("\033[H\033[2J")
-			fmt.Println("Time remaining", ((splitsecchunks - i) * int64(split)), "seconds remaining. Refresh Rate", split, "seconds")
+			fmt.Printf("Time remaining: %d seconds\n", int64(remaining.Seconds()))
 		} else if bar {
-			pbar.Add(1)
+			// Update progress bar to match elapsed time
+			pbar.Set64(int64(elapsed.Seconds()))
 		}
-		time.Sleep(time.Duration(split) * time.Second)
+
+		lastUpdateTime = time.Now()
+	}
+
+	// Final cleanup
+	if timeleft {
+		fmt.Print("\033[H\033[2J")
+		fmt.Println("Sleep complete!")
+	} else if bar {
+		pbar.Set64(int64(sec))
+		pbar.Finish()
 	}
 }
 
@@ -89,10 +178,4 @@ func IsNumeric(s string) (bool, int) {
 		return false, -1
 	}
 	return true, mynum
-}
-
-func DivideWithMod(numerator, denominator int64) (int64, int64) {
-	answer := numerator / denominator
-	remainder := numerator % denominator
-	return answer, remainder
 }
