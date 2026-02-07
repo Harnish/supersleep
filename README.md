@@ -1,20 +1,63 @@
-# supersleep - sleep with output
+# supersleep - Enhanced sleep with progress tracking
 
-This is a quick tool I use in replace of sleep so I can tell how much longer my sleep command has.  This is not 100% accurate.  It really doesn't matter to me for what I use it for.  
+A drop-in replacement for `sleep` with real-time progress output and accurate timing. Perfect for long-running sleeps where you want to check progress without starting over.
 
-My main use is when I kick off a sleep command for multiple hours and come back later and want to know where it is at.  I could probably add different things but this was straight forward.  Maybe I should make it run like sleep but if you send it a signal it could change the view.  
+## Features
 
-## Build
-```
+- **Accurate timing** - Uses elapsed time tracking to prevent drift, even for very long sleeps
+- **Two output modes** - Text countdown or visual progress bar
+- **Interactive ctrl-c handling**:
+  - **First ctrl-c**: Shows time remaining without exiting
+  - **Second ctrl-c within 2 seconds**: Gracefully exits the sleep
+- **Multiple time formats** - Support for seconds (s), minutes (m), hours (h), and days (d)
+- **Fast refresh rate** - 2-second update intervals for responsive feedback
+
+## Installation
+
+```bash
 go build
 ```
 
-## Run
-```
-# ./supersleep -t 14m
+## Usage
 
-Time remaining 840 seconds remaining. Refresh Rate 2 seconds
-
- # ./supersleep -b 1h
-   0% |                                                  | (2/1800, 60 it/min) [2s:29m59s]
+```bash
+./supersleep TIME [OPTIONS]
 ```
+
+### Time Format
+- `30s` - 30 seconds
+- `5m` - 5 minutes
+- `2h` - 2 hours
+- `1d` - 1 day
+- Plain number - interpreted as seconds
+
+### Options
+
+- `-t` - Text mode (shows time remaining in seconds)
+- `-b` - Bar mode (shows progress bar with percentage)
+- (default) - Progress bar mode if no option specified
+
+### Examples
+
+```bash
+# Sleep for 14 minutes with text countdown
+./supersleep 14m -t
+
+# Sleep for 1 hour with progress bar
+./supersleep 1h -b
+
+# Sleep for 30 seconds (default mode)
+./supersleep 30s
+```
+
+### Interactive Commands
+
+While sleeping, press:
+- **Ctrl-C** (once) - Display time remaining and continue
+- **Ctrl-C** (twice within 2 seconds) - Exit immediately
+
+## Improvements Made (v2)
+
+- Fixed time drift issues with elapsed-time based tracking instead of fixed intervals
+- Added interactive ctrl-c signal handling for displaying time remaining
+- Cleaner code structure and error handling
