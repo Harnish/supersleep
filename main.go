@@ -257,15 +257,16 @@ func main() {
 	}
 }
 
-// IsTime parses a duration like "30s", "5m", "2.5h", or a bare number
-// (interpreted as seconds). Returns false if the string is not a valid
-// non-negative duration.
+// IsTime parses a duration string. Accepts a bare number (seconds), a single
+// number+suffix ("2.5h"), or fused segments ("1h30m", "2h15m30s"). Suffixes
+// may appear in any order and are summed. Returns false if the string is not a
+// valid non-negative duration.
 func IsTime(foo string) (bool, time.Duration) {
-	durationLevel := map[string]float64{
-		"s": 1,
-		"m": 60,
-		"h": 3600,
-		"d": 86400,
+	durationLevel := map[byte]float64{
+		's': 1,
+		'm': 60,
+		'h': 3600,
+		'd': 86400,
 	}
 
 	// Bare number = seconds
@@ -273,14 +274,33 @@ func IsTime(foo string) (bool, time.Duration) {
 		return true, floatSeconds(n)
 	}
 
-	for p, mult := range durationLevel {
-		if strings.HasSuffix(foo, p) {
-			if n, ok := parseFloat(strings.TrimSuffix(foo, p)); ok {
-				return true, floatSeconds(n * mult)
-			}
+	// Fused segments: repeated <number><suffix> pairs, e.g. "1h30m".
+	var total float64
+	i := 0
+	for i < len(foo) {
+		// Consume the numeric part.
+		start := i
+		for i < len(foo) && (foo[i] == '.' || (foo[i] >= '0' && foo[i] <= '9')) {
+			i++
 		}
+		if i == start || i >= len(foo) {
+			return false, 0 // missing number or missing suffix
+		}
+		n, ok := parseFloat(foo[start:i])
+		if !ok {
+			return false, 0
+		}
+		mult, ok := durationLevel[foo[i]]
+		if !ok {
+			return false, 0 // unknown suffix
+		}
+		total += n * mult
+		i++ // skip suffix
 	}
-	return false, 0
+	if i == 0 {
+		return false, 0
+	}
+	return true, floatSeconds(total)
 }
 
 func floatSeconds(sec float64) time.Duration {

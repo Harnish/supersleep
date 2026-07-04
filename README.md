@@ -38,6 +38,7 @@ go build
 - `1d` - 1 day
 - Plain number - interpreted as seconds
 - `infinity` - sleep forever
+- Fused segments: `1h30m`, `2h15m30s` (any order, summed)
 - Multiple values are summed: `1m 30s` = 90 seconds
 
 ### Options
