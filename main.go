@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -37,61 +38,99 @@ Options:
               Show version and exit
 `
 
-func main() {
-	bar := false
-	timeleft := false
-	haveTime := false
-	infinite := false
-	var totalDuration time.Duration
+// config holds the parsed command-line options.
+type config struct {
+	bar         bool
+	timeleft    bool
+	infinite    bool
+	duration    time.Duration
+	showHelp    bool
+	showVersion bool
+}
 
-	for _, arg := range os.Args[1:] {
+var (
+	errMissingOperand = errors.New("missing operand")
+	errBothModes      = errors.New("Only use 1 output mode")
+)
+
+// parseArgs interprets command-line arguments (excluding argv[0]). It performs
+// no I/O so it can be unit tested; help/version requests are reported via the
+// config, and usage errors are returned.
+func parseArgs(args []string) (config, error) {
+	var cfg config
+	haveTime := false
+
+	for _, arg := range args {
 		switch arg {
 		case "-b":
-			bar = true
+			cfg.bar = true
 			continue
 		case "-t":
-			timeleft = true
+			cfg.timeleft = true
 			continue
 		case "-h", "--help":
-			fmt.Print(usage)
-			os.Exit(0)
+			cfg.showHelp = true
+			return cfg, nil
 		case "-v", "--version":
-			fmt.Printf("supersleep %s\n", version)
-			os.Exit(0)
+			cfg.showVersion = true
+			return cfg, nil
 		case "infinity", "inf":
-			infinite = true
+			cfg.infinite = true
 			haveTime = true
 			continue
 		}
 
 		if strings.HasPrefix(arg, "-") {
-			fmt.Fprintf(os.Stderr, "supersleep: invalid option '%s'\n", arg)
-			os.Exit(1)
+			return cfg, fmt.Errorf("invalid option '%s'", arg)
 		}
 
 		istime, d := IsTime(arg)
 		if !istime {
-			fmt.Fprintf(os.Stderr, "supersleep: invalid time interval '%s'\n", arg)
-			os.Exit(1)
+			return cfg, fmt.Errorf("invalid time interval '%s'", arg)
 		}
-		totalDuration += d
+		cfg.duration += d
 		haveTime = true
 	}
 
 	if !haveTime {
-		fmt.Fprintln(os.Stderr, "supersleep: missing operand")
-		fmt.Fprintln(os.Stderr, "Try 'supersleep --help' for more information.")
+		return cfg, errMissingOperand
+	}
+	if cfg.timeleft && cfg.bar {
+		return cfg, errBothModes
+	}
+	if cfg.infinite {
+		cfg.duration = time.Duration(1<<63 - 1)
+	}
+	return cfg, nil
+}
+
+func main() {
+	cfg, err := parseArgs(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "supersleep: %v\n", err)
+		if errors.Is(err, errMissingOperand) {
+			fmt.Fprintln(os.Stderr, "Try 'supersleep --help' for more information.")
+		}
 		os.Exit(1)
 	}
-
-	if timeleft && bar {
-		fmt.Fprintln(os.Stderr, "Only use 1 output mode")
-		os.Exit(1)
+	if cfg.showHelp {
+		fmt.Print(usage)
+		os.Exit(0)
 	}
-
-	if infinite {
-		totalDuration = time.Duration(1<<63 - 1)
+	if cfg.showVersion {
+		fmt.Printf("supersleep %s\n", version)
+		os.Exit(0)
 	}
+	runSleep(cfg)
+}
+
+// runSleep performs the sleep described by cfg, rendering progress and handling
+// interactive input.
+func runSleep(cfg config) {
+	bar := cfg.bar
+	timeleft := cfg.timeleft
+	infinite := cfg.infinite
+	totalDuration := cfg.duration
 
 	const refreshRate = 2 // seconds
 	sec := int(totalDuration.Seconds())

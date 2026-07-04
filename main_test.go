@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,6 +83,65 @@ func TestIsTime(t *testing.T) {
 			t.Errorf("IsTime(%q) = %v, want %v", c.in, got, c.want)
 		}
 	}
+}
+
+func TestParseArgs(t *testing.T) {
+	t.Run("sum", func(t *testing.T) {
+		cfg, err := parseArgs([]string{"1m", "30s"})
+		if err != nil {
+			t.Fatalf("err = %v", err)
+		}
+		if cfg.duration != 90*time.Second {
+			t.Errorf("duration = %v, want 90s", cfg.duration)
+		}
+	})
+	t.Run("flags", func(t *testing.T) {
+		cfg, err := parseArgs([]string{"-t", "5"})
+		if err != nil {
+			t.Fatalf("err = %v", err)
+		}
+		if !cfg.timeleft || cfg.bar {
+			t.Errorf("cfg = %+v, want timeleft only", cfg)
+		}
+	})
+	t.Run("infinity", func(t *testing.T) {
+		cfg, err := parseArgs([]string{"infinity"})
+		if err != nil || !cfg.infinite {
+			t.Errorf("cfg = %+v, err = %v", cfg, err)
+		}
+	})
+	t.Run("help short-circuits", func(t *testing.T) {
+		cfg, err := parseArgs([]string{"-h"})
+		if err != nil || !cfg.showHelp {
+			t.Errorf("cfg = %+v, err = %v", cfg, err)
+		}
+	})
+	t.Run("version", func(t *testing.T) {
+		cfg, err := parseArgs([]string{"--version"})
+		if err != nil || !cfg.showVersion {
+			t.Errorf("cfg = %+v, err = %v", cfg, err)
+		}
+	})
+	t.Run("missing operand", func(t *testing.T) {
+		if _, err := parseArgs([]string{"-t"}); !errors.Is(err, errMissingOperand) {
+			t.Errorf("err = %v, want errMissingOperand", err)
+		}
+	})
+	t.Run("both modes", func(t *testing.T) {
+		if _, err := parseArgs([]string{"1", "-t", "-b"}); !errors.Is(err, errBothModes) {
+			t.Errorf("err = %v, want errBothModes", err)
+		}
+	})
+	t.Run("invalid option", func(t *testing.T) {
+		if _, err := parseArgs([]string{"--nope"}); err == nil || !strings.Contains(err.Error(), "invalid option") {
+			t.Errorf("err = %v, want invalid option", err)
+		}
+	})
+	t.Run("invalid interval", func(t *testing.T) {
+		if _, err := parseArgs([]string{"abc"}); err == nil || !strings.Contains(err.Error(), "invalid time interval") {
+			t.Errorf("err = %v, want invalid time interval", err)
+		}
+	})
 }
 
 func TestParseFloat(t *testing.T) {
