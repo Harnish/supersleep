@@ -1,5 +1,7 @@
 # supersleep - Enhanced sleep with progress tracking
 
+[![Test](https://github.com/Harnish/supersleep/actions/workflows/test.yml/badge.svg)](https://github.com/Harnish/supersleep/actions/workflows/test.yml)
+
 A drop-in replacement for `sleep` with real-time progress output and accurate timing. Perfect for long-running sleeps where you want to check progress without starting over.
 
 ## Features
