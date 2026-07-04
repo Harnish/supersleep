@@ -6,10 +6,17 @@ A drop-in replacement for `sleep` with real-time progress output and accurate ti
 
 - **Accurate timing** - Uses elapsed time tracking to prevent drift, even for very long sleeps
 - **Two output modes** - Text countdown or visual progress bar
-- **Interactive ctrl-c handling**:
-  - **First ctrl-c**: Shows time remaining without exiting
-  - **Second ctrl-c within 2 seconds**: Gracefully exits the sleep
+- **Script-safe interactive controls** (when run in a terminal):
+  - **Any key**: Shows time remaining without exiting
+  - **Ctrl-C**: Exits supersleep only — no signal is sent to a surrounding
+    script/process group, so peeking at the time can't interrupt your script
+  - When stdin is piped/redirected (no terminal), falls back to signal handling:
+    first ctrl-c shows time remaining, second within 2s exits
 - **Multiple time formats** - Support for seconds (s), minutes (m), hours (h), and days (d)
+- **Fractional durations** - Decimals like `0.5` or `2.5h`
+- **Summed durations** - `supersleep 1m 30s` sleeps for 90 seconds
+- **Infinite sleep** - `supersleep infinity`
+- **Input validation** - Errors on invalid/missing time intervals (non-zero exit)
 - **Fast refresh rate** - 2-second update intervals for responsive feedback
 
 ## Installation
@@ -27,14 +34,18 @@ go build
 ### Time Format
 - `30s` - 30 seconds
 - `5m` - 5 minutes
-- `2h` - 2 hours
+- `2.5h` - 2.5 hours (decimals allowed)
 - `1d` - 1 day
 - Plain number - interpreted as seconds
+- `infinity` - sleep forever
+- Multiple values are summed: `1m 30s` = 90 seconds
 
 ### Options
 
 - `-t` - Text mode (shows time remaining in seconds)
 - `-b` - Bar mode (shows progress bar with percentage)
+- `-h`, `--help` - Show help and exit
+- `-v`, `--version` - Show version and exit
 - (default) - Progress bar mode if no option specified
 
 ### Examples
@@ -52,7 +63,11 @@ go build
 
 ### Interactive Commands
 
-While sleeping, press:
+While sleeping in a terminal:
+- **Any key** - Display time remaining and continue
+- **Ctrl-C** - Exit supersleep (does not signal the surrounding script)
+
+When stdin is not a terminal (piped/redirected), supersleep uses signals instead:
 - **Ctrl-C** (once) - Display time remaining and continue
 - **Ctrl-C** (twice within 2 seconds) - Exit immediately
 
