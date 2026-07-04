@@ -132,11 +132,19 @@ func runSleep(cfg config) {
 	infinite := cfg.infinite
 	totalDuration := cfg.duration
 
+	// A progress bar has no end to fill toward when sleeping forever, so fall
+	// back to the text countdown.
+	if bar && infinite {
+		fmt.Fprintln(os.Stderr, "supersleep: progress bar unavailable for infinite sleep; using text mode")
+		bar = false
+		timeleft = true
+	}
+
 	const refreshRate = 2 // seconds
 	sec := int(totalDuration.Seconds())
 	var pbar *progressbar.ProgressBar
 
-	if bar && !infinite {
+	if bar {
 		pbar = progressbar.Default(int64(sec))
 	}
 

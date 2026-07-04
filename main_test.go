@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -249,6 +250,25 @@ func TestCLIDurationSum(t *testing.T) {
 	}
 	if elapsed > 2*time.Second {
 		t.Errorf("elapsed = %v, want < 2s (should not overshoot)", elapsed)
+	}
+}
+
+func TestCLIBarInfinityFallsBackToText(t *testing.T) {
+	// -b infinity has no end to fill; it should warn and use text mode.
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binPath, "-b", "infinity")
+	cmd.Stdin = strings.NewReader("")
+	var outBuf, errBuf strings.Builder
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	_ = cmd.Run() // killed by context; ignore the resulting error
+
+	if !strings.Contains(errBuf.String(), "progress bar unavailable for infinite sleep") {
+		t.Errorf("stderr = %q, want fallback notice", errBuf.String())
+	}
+	if !strings.Contains(outBuf.String(), "Time remaining: infinity") {
+		t.Errorf("stdout = %q, want text countdown", outBuf.String())
 	}
 }
 

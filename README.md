@@ -39,7 +39,7 @@ go build
 - `2.5h` - 2.5 hours (decimals allowed)
 - `1d` - 1 day
 - Plain number - interpreted as seconds
-- `infinity` - sleep forever
+- `infinity` - sleep forever (progress-bar mode falls back to text)
 - Fused segments: `1h30m`, `2h15m30s` (any order, summed)
 - Multiple values are summed: `1m 30s` = 90 seconds
 
