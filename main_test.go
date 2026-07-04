@@ -143,6 +143,23 @@ func TestParseArgs(t *testing.T) {
 			t.Errorf("err = %v, want invalid time interval", err)
 		}
 	})
+	t.Run("bundled flags conflict", func(t *testing.T) {
+		// -tb expands to -t -b, which is a mode conflict.
+		if _, err := parseArgs([]string{"1", "-tb"}); !errors.Is(err, errBothModes) {
+			t.Errorf("err = %v, want errBothModes", err)
+		}
+	})
+	t.Run("bundled with version", func(t *testing.T) {
+		cfg, err := parseArgs([]string{"-tv"})
+		if err != nil || !cfg.showVersion {
+			t.Errorf("cfg = %+v, err = %v", cfg, err)
+		}
+	})
+	t.Run("bundled unknown char", func(t *testing.T) {
+		if _, err := parseArgs([]string{"-tx", "1"}); err == nil || !strings.Contains(err.Error(), "invalid option") {
+			t.Errorf("err = %v, want invalid option", err)
+		}
+	})
 }
 
 func TestParseFloat(t *testing.T) {

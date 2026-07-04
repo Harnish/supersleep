@@ -80,6 +80,34 @@ func parseArgs(args []string) (config, error) {
 			continue
 		}
 
+		// Bundled short flags, e.g. "-tb" == "-t -b".
+		if len(arg) > 2 && arg[0] == '-' && arg[1] != '-' {
+			valid := true
+			for _, c := range arg[1:] {
+				if !strings.ContainsRune("bthv", c) {
+					valid = false
+					break
+				}
+			}
+			if valid {
+				for _, c := range arg[1:] {
+					switch c {
+					case 'b':
+						cfg.bar = true
+					case 't':
+						cfg.timeleft = true
+					case 'h':
+						cfg.showHelp = true
+						return cfg, nil
+					case 'v':
+						cfg.showVersion = true
+						return cfg, nil
+					}
+				}
+				continue
+			}
+		}
+
 		if strings.HasPrefix(arg, "-") {
 			return cfg, fmt.Errorf("invalid option '%s'", arg)
 		}
